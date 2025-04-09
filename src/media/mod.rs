@@ -3,8 +3,8 @@
 // This module is responsible for selective forwarding of media packets.
 
 pub mod codec;
-pub mod rtp;
 pub mod frame;
+pub mod rtp;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::Result;
 use async_trait::async_trait;
+use serde::Deserialize;
 use tokio::sync::RwLock;
 
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
 pub type TrackId = u64;
 
 /// Media track kinds
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub enum TrackKind {
     /// Audio track
     Audio,
@@ -110,13 +111,25 @@ pub trait MediaRouter: Send + Sync {
     async fn process_packet(&self, packet: RoutableMediaPacket) -> Result<()>;
 
     /// Get forwarding decision for a packet
-    async fn get_forwarding_decision(&self, packet: &RoutableMediaPacket) -> Result<ForwardingDecision>;
+    async fn get_forwarding_decision(
+        &self,
+        packet: &RoutableMediaPacket,
+    ) -> Result<ForwardingDecision>;
 
     /// Forward a packet to subscribers
-    async fn forward_packet(&self, packet: RoutableMediaPacket, decision: ForwardingDecision) -> Result<()>;
+    async fn forward_packet(
+        &self,
+        packet: RoutableMediaPacket,
+        decision: ForwardingDecision,
+    ) -> Result<()>;
 
     /// Register a new track
-    async fn register_track(&self, publisher_id: SessionId, track_id: TrackId, kind: TrackKind) -> Result<()>;
+    async fn register_track(
+        &self,
+        publisher_id: SessionId,
+        track_id: TrackId,
+        kind: TrackKind,
+    ) -> Result<()>;
 
     /// Unregister a track
     async fn unregister_track(&self, publisher_id: SessionId, track_id: TrackId) -> Result<()>;
@@ -157,39 +170,46 @@ impl MediaRouter for DefaultMediaRouter {
     async fn process_packet(&self, packet: RoutableMediaPacket) -> Result<()> {
         // Get forwarding decision
         let decision = self.get_forwarding_decision(&packet).await?;
-        
+
         // Forward the packet
         self.forward_packet(packet, decision).await
     }
 
-    async fn get_forwarding_decision(&self, packet: &RoutableMediaPacket) -> Result<ForwardingDecision> {
+    async fn get_forwarding_decision(
+        &self,
+        packet: &RoutableMediaPacket,
+    ) -> Result<ForwardingDecision> {
         let tracks = self.tracks.read().await;
-        
+
         // Get track info
         let track_info = tracks
             .get(&packet.track_id)
             .ok_or_else(|| SfuError::Media(format!("Track not found: {}", packet.track_id)))?;
-        
+
         // Get subscribers
         let target_subscribers = track_info.subscribers.iter().cloned().collect();
-        
+
         // Create forwarding decision
         let decision = ForwardingDecision {
             target_subscribers,
             adapt: false,
             adaptation_params: None,
         };
-        
+
         Ok(decision)
     }
 
-    async fn forward_packet(&self, packet: RoutableMediaPacket, decision: ForwardingDecision) -> Result<()> {
+    async fn forward_packet(
+        &self,
+        packet: RoutableMediaPacket,
+        decision: ForwardingDecision,
+    ) -> Result<()> {
         // For each target subscriber
         for subscriber_id in decision.target_subscribers {
             // Get the participant
             if let Ok(participant) = self.session_manager.get_participant(subscriber_id).await {
                 let participant = participant.read().await;
-                
+
                 // Check if the participant is subscribed to this track
                 if participant.subscribed_tracks.contains_key(&packet.track_id) {
                     // Forward the packet to the participant
@@ -202,13 +222,18 @@ impl MediaRouter for DefaultMediaRouter {
                 }
             }
         }
-        
+
         Ok(())
     }
 
-    async fn register_track(&self, publisher_id: SessionId, track_id: TrackId, kind: TrackKind) -> Result<()> {
+    async fn register_track(
+        &self,
+        publisher_id: SessionId,
+        track_id: TrackId,
+        kind: TrackKind,
+    ) -> Result<()> {
         let mut tracks = self.tracks.write().await;
-        
+
         // Create track info
         let track_info = TrackInfo {
             track_id,
@@ -216,16 +241,16 @@ impl MediaRouter for DefaultMediaRouter {
             kind,
             subscribers: HashSet::new(),
         };
-        
+
         // Register the track
         tracks.insert(track_id, track_info);
-        
+
         Ok(())
     }
 
     async fn unregister_track(&self, publisher_id: SessionId, track_id: TrackId) -> Result<()> {
         let mut tracks = self.tracks.write().await;
-        
+
         // Check if the track exists and belongs to the publisher
         if let Some(track) = tracks.get(&track_id) {
             if track.publisher_id != publisher_id {
@@ -238,10 +263,10 @@ impl MediaRouter for DefaultMediaRouter {
         } else {
             return Err(SfuError::Media(format!("Track not found: {}", track_id)).into());
         }
-        
+
         // Remove the track
         tracks.remove(&track_id);
-        
+
         Ok(())
     }
 }
