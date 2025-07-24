@@ -31,6 +31,14 @@ kolla_external_vip_address: "84.32.215.62"
 openvswitch_db_volumes_extra: "/lib/modules:/lib/modules:ro,/run/openvswitch:/run/openvswitch:shared"
 openvswitch_vswitchd_volumes_extra: "/run/openvswitch:/run/openvswitch:shared"
 
+# BGP Configuration
+ovn_bgp_agent: "yes"  # Enable OVN BGP Agent for distributed announcement
+enable_neutron_bgp_dragent: "yes"  # Enables Neutron BGP speaker
+neutron_bgp_speaker_peer_ip: "46.166.166.122"
+neutron_bgp_speaker_peer_asn: 16125  # Cherry's ASN; confirm with support
+neutron_bgp_speaker_local_asn: 64667  # Your local ASN from portal
+neutron_bgp_speaker_driver: "ovn"  # For OVN integration
+
 # Console
 nova_console: "none"
 
@@ -70,7 +78,6 @@ enable_watcher: "no"
 enable_zun: "no"
 
 # Neutron optionals
-enable_neutron_bgp_dragent: "no"
 enable_neutron_infoblox_ipam_agent: "no"
 enable_neutron_metering: "no"
 enable_ironic_neutron_agent: "no"

@@ -10,6 +10,7 @@ dependencies = [
     "cliff>=4.10.0",
     "kolla-ansible>=20.1.0",
     "pbr>=6.1.1",
+    "python-neutronclient>=11.6.0",
     "python-openstackclient>=8.1.0",
     "stevedore>=5.4.1",
 ]
