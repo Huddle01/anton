@@ -1,3 +1,4 @@
+# netplan_bridge_template.j2
 network:
   version: 2
   renderer: networkd
@@ -5,24 +6,19 @@ network:
     {{ physical_interface }}:
       dhcp4: no
       dhcp6: no
-  vlans:
-    {{ physical_interface }}.1871:
-      id: 1871
-      link: {{ physical_interface }}
-      dhcp4: no
-      dhcp6: no
-      addresses: ["{{ private_ip }}/24"]  # Add your private VLAN IP here
-  bridges:
-    {{ bridge_name }}:
-      interfaces: [{{ physical_interface }}]
-      dhcp4: no
-      dhcp6: no
-      addresses: ["{{ node_ip }}{{ node_subnet }} {% if floating_ip %}, {{ floating_ip }}{% endif %}"]
-      routes:
-        - to: 0.0.0.0/0
-          via: {{ node_gateway }}
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-      parameters:
-        stp: false
-        forward-delay: 0
+  openvswitch:
+    ports:
+      - [{{ physical_interface }}, {{ bridge_name }}]
+    bridges:
+      {{ bridge_name }}:
+        dhcp4: no
+        dhcp6: no
+        addresses: ["{{ public_ip }}{{ node_subnet }}"]
+        routes:
+          - to: 0.0.0.0/0
+            via: {{ node_gateway }}
+        nameservers:
+          addresses: [8.8.8.8, 8.8.4.4]
+        parameters:
+          stp: false
+          forward-delay: 0chmod 0600 /etc/netplan/50-br-ex-config.yaml

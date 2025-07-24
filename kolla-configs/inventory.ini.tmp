@@ -29,21 +29,12 @@ network
 compute
 storage
 
-# OVN-SPECIFIC GROUPS (Required for OVN)
+# OVN-specific groups
 [ovn-controller:children]
-ovn-controller-network
-ovn-controller-compute
-
-[ovn-controller-network:children]  # Added for network nodes
+compute
 network
 
-[ovn-controller-compute:children]  # Added for compute nodes
-compute
-
-[ovn-nb-db:children]
-control
-
-[ovn-sb-db:children]
+[ovn-database:children]
 control
 
 [ovn-northd:children]
@@ -53,27 +44,10 @@ control
 compute
 network
 
-[neutron-ovn-agent:children]
-compute
-network
-
-# OVN Relay Groups (empty to disable relay and avoid template errors)
-[ovn-nb-db-relay]
-# Empty - relay disabled
-
-[ovn-sb-db-relay]
-# Empty - relay disabled
-
-# OVS (required for OVN)
-[openvswitch:children]
-network
-compute
-
-# EMPTY GROUPS (required by kolla-ansible but not used)
+# Rest of your groups remain the same...
 [bifrost:children]
 deployment
 
-# REQUIRED COMMON SERVICES (Kolla infrastructure)
 [cron:children]
 common
 
@@ -83,20 +57,18 @@ common
 [kolla-toolbox:children]
 common
 
-[fluentd:children]  # Required for precheck, even if disabled
+[fluentd:children]
 common
 
-# DATABASE AND MESSAGE QUEUE
 [mariadb:children]
 control
 
-[rabbitmq:children]
+[rabbitmq:children] 
 control
 
 [memcached:children]
 control
 
-# CORE SERVICES
 [keystone:children]
 control
 
@@ -115,21 +87,20 @@ control
 [placement:children]
 control
 
-# HA SERVICES
 [loadbalancer:children]
 network
 
 [keepalived:children]
 network
 
-# SERVICE-LEVEL GROUPS
+# SERVICE-LEVEL GROUPS (same as before)
 [glance-api:children]
 glance
 
 [nova-api:children]
 nova
 
-[nova-conductor:children]
+[nova-conductor:children] 
 nova
 
 [nova-metadata:children]
@@ -158,28 +129,6 @@ control
 
 [placement-api:children]
 placement
-
-# REQUIRED BUT EMPTY GROUPS FOR OVN
-[neutron-dhcp-agent]
-# Empty - OVN handles DHCP
-
-[neutron-l3-agent]  
-# Empty - OVN handles L3
-
-[neutron-metadata-agent]
-# Empty - using neutron-ovn-metadata-agent instead
-
-[neutron-bgp-dragent]
-# Empty - BGP not used
-
-[neutron-infoblox-ipam-agent]
-# Empty - Infoblox not used
-
-[neutron-metering-agent]
-# Empty - Metering not used
-
-[ironic-neutron-agent]
-# Empty - Ironic not used
 
 [all:vars]
 ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'

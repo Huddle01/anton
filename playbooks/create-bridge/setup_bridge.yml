@@ -1,25 +1,24 @@
 ---
-- name: Setup br-ex bridge on OpenStack nodes
+- name: Setup br-ex bridge on nodes
   hosts: all
   become: true
-  serial: 1  # Process one host at a time for safety
-  vars:
-    node_ip: "{{ ansible_host }}"
+  serial: 1  # One node at a time for safety
 
   tasks:
     - name: Update apt cache
       apt:
-        update_cache: yes
+        update_cache: no
 
     - name: Install openvswitch-switch
       apt:
         name: openvswitch-switch
         state: present
 
-    - name: Restart openvswitch-switch service
+    - name: Ensure openvswitch-switch service is running
       service:
         name: openvswitch-switch
-        state: restarted
+        state: started
+        enabled: yes
 
     - name: Check if br-ex bridge exists
       command: ovs-vsctl br-exists {{ bridge_name }}
@@ -27,49 +26,43 @@
       failed_when: false
       changed_when: false
 
-    - name: Create br-ex bridge if not exists
+    - name: Create OVS bridge if not exists
       command: ovs-vsctl add-br {{ bridge_name }}
       when: bridge_check.rc != 0
 
-    - name: Check if physical interface is already port of bridge
+    - name: Check if physical interface is port of bridge
       command: ovs-vsctl port-to-br {{ physical_interface }}
       register: port_check
       failed_when: false
       changed_when: false
 
-    - name: Add physical interface to bridge if not added
+    - name: Add physical port to OVS bridge if not added
       command: ovs-vsctl add-port {{ bridge_name }} {{ physical_interface }}
       when: port_check.rc != 0 or port_check.stdout != bridge_name
 
-    - name: Migrate IPs and routes to bridge (add first for safety)
-      shell: |
-        ip addr add {{ node_ip }}{{ node_subnet }} dev {{ bridge_name }}
-        {% if floating_ip %}ip addr add {{ floating_ip }} dev {{ bridge_name }}{% endif %}
-        ip link set {{ bridge_name }} up
-        ip route add default via {{ node_gateway }} dev {{ bridge_name }} metric 50
-      changed_when: false
-
-    - name: Pause to verify connectivity (manual check in another terminal)
-      pause:
-        prompt: "Verify SSH to {{ ansible_host }} still works, then press Enter"
-        echo: yes
-
-    - name: Remove IPs and old routes from physical interface (after verification)
-      shell: |
-        ip addr del {{ node_ip }}{{ node_subnet }} dev {{ physical_interface }} || true
-        {% if floating_ip %}ip addr del {{ floating_ip }} dev {{ physical_interface }} || true{% endif %}
-        ip route del default via {{ node_gateway }} dev {{ physical_interface }} || true
-      changed_when: false
-
-    - name: Configure Netplan for persistence
+    - name: Create persistent Netplan config for OVS bridge
       template:
         src: netplan_template.j2
-        dest: /etc/netplan/01-netcfg.yaml
+        dest: /etc/netplan/50-br-ex-config.yaml
         mode: 0644
-      notify: Apply Netplan
-      register: netplan_changed
+      notify: Apply Netplan and verify
 
   handlers:
-    - name: Apply Netplan
+    - name: Apply new network config
       command: netplan apply
-      when: netplan_changed.changed
+      listen: Apply Netplan and verify
+
+    - name: Pause for network to settle
+      pause:
+        seconds: 5
+      listen: Apply Netplan and verify
+
+    - name: Verify public connectivity
+      command: ping -c 3 8.8.8.8
+      changed_when: false
+      listen: Apply Netplan and verify
+
+    - name: Ensure private interface is up
+      command: ip link show {{ physical_interface }}.1871
+      changed_when: false
+      listen: Apply Netplan and verify
