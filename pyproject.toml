@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ansible>=11.8.0",
     "autopage>=0.5.2",
     "cliff>=4.10.0",
     "kolla-ansible>=20.1.0",

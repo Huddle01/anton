@@ -14,7 +14,6 @@ create-bridge:
 	@echo ">>> Creating bridge interface..."
 	@ansible-playbook -i playbooks/create-bridge/inventory.ini playbooks/create-bridge/setup_bridge.yml --limit control -vvv
 
-
 # Kolla Ansible playbook tasks
 ping:
 	@echo ">>> Pinging Services"
